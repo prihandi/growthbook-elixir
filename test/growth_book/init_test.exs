@@ -5,11 +5,13 @@ defmodule GrowthBook.InitTest do
 
   # Mock HTTP client for testing
   defmodule MockHTTP do
+    @behaviour GrowthBook.HTTPClient
+
     # Regular features
-    def get("https://cdn.growthbook.io/api/features/client-key") do
+    def get("https://cdn.growthbook.io/api/features/client-key", _opts) do
       {:ok,
-       %HTTPoison.Response{
-         status_code: 200,
+       %{
+         status: 200,
          body:
            Jason.encode!(%{
              "features" => %{
@@ -21,10 +23,10 @@ defmodule GrowthBook.InitTest do
     end
 
     # Encrypted features
-    def get("https://cdn.growthbook.io/api/features/encrypted-client-key") do
+    def get("https://cdn.growthbook.io/api/features/encrypted-client-key", _opts) do
       {:ok,
-       %HTTPoison.Response{
-         status_code: 200,
+       %{
+         status: 200,
          body:
            Jason.encode!(%{
              "encryptedFeatures" => "mock-encrypted-data"
@@ -32,19 +34,19 @@ defmodule GrowthBook.InitTest do
        }}
     end
 
-    def get("https://cdn.growthbook.io/api/features/error-key") do
-      {:ok, %HTTPoison.Response{status_code: 500, body: "Internal Server Error"}}
+    def get("https://cdn.growthbook.io/api/features/error-key", _opts) do
+      {:ok, %{status: 500, body: "Internal Server Error"}}
     end
 
-    def get("https://cdn.growthbook.io/api/features/timeout-key") do
-      {:error, %HTTPoison.Error{reason: :timeout}}
+    def get("https://cdn.growthbook.io/api/features/timeout-key", _opts) do
+      {:error, :timeout}
     end
   end
 
   # Setup mocks and cleanup
   setup do
-    # Replace HTTPoison with our mock
-    original_http = Application.get_env(:growthbook, :http_client, HTTPoison)
+    # Replace the HTTP client with our mock
+    original_http = Application.get_env(:growthbook, :http_client)
     Application.put_env(:growthbook, :http_client, MockHTTP)
 
     on_exit(fn ->
@@ -142,10 +144,10 @@ defmodule GrowthBook.InitTest do
     test "handles timeout during initialization" do
       # Create a mock HTTP client that sleeps
       defmodule SlowMockHTTP do
-        def get(_url) do
+        def get(_url, _opts) do
           # Sleep longer than our timeout
           Process.sleep(200)
-          {:ok, %HTTPoison.Response{status_code: 200, body: "{}"}}
+          {:ok, %{status: 200, body: "{}"}}
         end
       end
 

@@ -6,11 +6,13 @@ defmodule GrowthBook.FeatureRepositoryTest do
 
   # Mock HTTP client for testing
   defmodule MockHTTP do
+    @behaviour GrowthBook.HTTPClient
+
     # This simulates the GrowthBook API server
-    def get("https://cdn.growthbook.io/api/features/client-key") do
+    def get("https://cdn.growthbook.io/api/features/client-key", _opts) do
       {:ok,
-       %HTTPoison.Response{
-         status_code: 200,
+       %{
+         status: 200,
          body:
            Jason.encode!(%{
              "features" => %{
@@ -22,12 +24,12 @@ defmodule GrowthBook.FeatureRepositoryTest do
     end
 
     # This simulates the encrypted response from GrowthBook API
-    def get("https://cdn.growthbook.io/api/features/encrypted-client-key") do
+    def get("https://cdn.growthbook.io/api/features/encrypted-client-key", _opts) do
       # Return a simple encrypted payload that our decryption module can handle for testing
       # This is a simplified version that doesn't require actual decryption
       {:ok,
-       %HTTPoison.Response{
-         status_code: 200,
+       %{
+         status: 200,
          body:
            Jason.encode!(%{
              # Use a special format our test decryption module will recognize
@@ -37,25 +39,25 @@ defmodule GrowthBook.FeatureRepositoryTest do
     end
 
     # Error cases - these can still use different client keys for simpler testing
-    def get("https://cdn.growthbook.io/api/features/error-key") do
-      {:ok, %HTTPoison.Response{status_code: 500, body: "Internal Server Error"}}
+    def get("https://cdn.growthbook.io/api/features/error-key", _opts) do
+      {:ok, %{status: 500, body: "Internal Server Error"}}
     end
 
-    def get("https://cdn.growthbook.io/api/features/timeout-key") do
+    def get("https://cdn.growthbook.io/api/features/timeout-key", _opts) do
       # Simulate network delay
       Process.sleep(200)
-      {:error, %HTTPoison.Error{reason: :timeout}}
+      {:error, :timeout}
     end
 
-    def get("https://cdn.growthbook.io/api/features/invalid-json-key") do
-      {:ok, %HTTPoison.Response{status_code: 200, body: "not-json"}}
+    def get("https://cdn.growthbook.io/api/features/invalid-json-key", _opts) do
+      {:ok, %{status: 200, body: "not-json"}}
     end
   end
 
   # Setup mocks and cleanup
   setup do
-    # Replace HTTPoison with our mock
-    original_http = Application.get_env(:growthbook, :http_client, HTTPoison)
+    # Replace the HTTP client with our mock
+    original_http = Application.get_env(:growthbook, :http_client)
     Application.put_env(:growthbook, :http_client, MockHTTP)
 
     # Start a test repository

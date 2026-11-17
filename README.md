@@ -47,10 +47,33 @@ Add `growthbook` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:growthbook, "~> 0.4.0"}
+    {:growthbook, "~> 0.4.0"},
+    # Pick one HTTP client for fetching features from the GrowthBook API:
+    {:httpoison, "~> 3.0"}
+    # {:req, "~> 0.5"}
+    # {:tesla, "~> 1.4"}
   ]
 end
 ```
+
+The HTTP client is only needed if you use `GrowthBook.init/1` to fetch features.
+
+### Choosing an HTTP client
+
+If you don't configure a client, the SDK uses the first one it finds, in this order:
+HTTPoison, Req, Tesla. To pick one explicitly:
+
+```elixir
+# config/config.exs
+config :growthbook, http_client: GrowthBook.HTTPClient.Req
+
+# With adapter options
+config :growthbook,
+  http_client: {GrowthBook.HTTPClient.Tesla, adapter: Tesla.Adapter.Mint}
+```
+
+You can also pass `http_client:` to `GrowthBook.init/1`. Any module that implements the
+`GrowthBook.HTTPClient` behaviour works, which is handy for test mocks.
 
 ## Usage
 

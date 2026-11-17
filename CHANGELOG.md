@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- `httpoison` is now an optional dependency. If you fetch features with `GrowthBook.init/1`,
+  add an HTTP client to your deps: `{:httpoison, "~> 3.0"}`, `{:req, "~> 0.5"}` or `{:tesla, "~> 1.4"}`.
+- A custom module set in the `:http_client` app env must now implement the
+  `GrowthBook.HTTPClient` behaviour: `get(url, opts)` returning `{:ok, %{status: status, body: body}}`
+  or `{:error, reason}`, instead of returning HTTPoison structs.
+
+### Added
+
+- `GrowthBook.HTTPClient` behaviour with adapters for HTTPoison, Req and Tesla.
+  Pick one with the `:http_client` config or `GrowthBook.init/1` option, or let the SDK auto-detect it.
+
 ## 0.4.0 (2026-10-30)
 
 ### Breaking changes

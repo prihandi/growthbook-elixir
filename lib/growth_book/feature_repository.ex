@@ -18,6 +18,7 @@ defmodule GrowthBook.FeatureRepository do
     :features,
     :last_fetch,
     :on_refresh_callback,
+    :http_client,
     initialization_status: :pending,
     initialization_waiters: []
   ]
@@ -49,7 +50,8 @@ defmodule GrowthBook.FeatureRepository do
       refresh_strategy: opts[:refresh_strategy] || :periodic,
       features: %{},
       last_fetch: nil,
-      on_refresh_callback: opts[:on_refresh]
+      on_refresh_callback: opts[:on_refresh],
+      http_client: GrowthBook.HTTPClient.resolve(opts[:http_client])
     }
 
     Logger.info(
@@ -57,7 +59,8 @@ defmodule GrowthBook.FeatureRepository do
         " api_host=#{state.api_host}" <>
         " ttl=#{state.swr_ttl_seconds}s" <>
         " refresh_strategy=#{state.refresh_strategy}" <>
-        " decryption_enabled=#{!is_nil(state.decryption_key)}"
+        " decryption_enabled=#{!is_nil(state.decryption_key)}" <>
+        " http_client=#{inspect(http_client_module(state.http_client))}"
     )
 
     if state.refresh_strategy == :periodic do
@@ -202,45 +205,43 @@ defmodule GrowthBook.FeatureRepository do
     end
   end
 
-  defp fetch_features(%{api_host: host, client_key: key} = state) do
+  defp fetch_features(%{http_client: {:error, :no_http_client}}) do
+    {:error,
+     "No HTTP client available. Add :httpoison, :req or :tesla to your deps, " <>
+       "or set the :http_client option"}
+  end
+
+  defp fetch_features(%{api_host: host, client_key: key, http_client: {:ok, client}} = state) do
     url = "#{host}/api/features/#{key}"
 
     Logger.debug("Requesting features from #{url}")
 
-    http_client = Application.get_env(:growthbook, :http_client, HTTPoison)
-
     try do
-      case http_client.get(url) do
-        {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
-          parsed = Jason.decode!(body)
+      case GrowthBook.HTTPClient.get(url, client) do
+        {:ok, %{status: 200, body: body}} ->
+          parsed = decode_body(body)
 
-          features =
-            cond do
-              Map.has_key?(parsed, "encryptedFeatures") && state.decryption_key ->
-                Logger.debug("Decrypting encrypted features")
-                decrypt_features(parsed["encryptedFeatures"], state.decryption_key)
+          cond do
+            Map.has_key?(parsed, "encryptedFeatures") && state.decryption_key ->
+              Logger.debug("Decrypting encrypted features")
+              decrypt_features(parsed["encryptedFeatures"], state.decryption_key)
 
-              Map.has_key?(parsed, "encryptedFeatures") ->
-                Logger.error("Received encrypted features but no decryption key provided")
-                {:error, "Decryption key required for encrypted features"}
+            Map.has_key?(parsed, "encryptedFeatures") ->
+              Logger.error("Received encrypted features but no decryption key provided")
+              {:error, "Decryption key required for encrypted features"}
 
-              Map.has_key?(parsed, "features") ->
-                Logger.debug("Using unencrypted features")
-                {:ok, parsed["features"]}
+            Map.has_key?(parsed, "features") ->
+              Logger.debug("Using unencrypted features")
+              {:ok, parsed["features"]}
 
-              true ->
-                {:error, "Invalid response format"}
-            end
-
-          case features do
-            {:ok, features_map} -> {:ok, features_map}
-            {:error, reason} -> {:error, reason}
+            true ->
+              {:error, "Invalid response format"}
           end
 
-        {:ok, %HTTPoison.Response{status_code: status}} ->
+        {:ok, %{status: status}} ->
           {:error, "API request failed with status #{status}"}
 
-        {:error, %HTTPoison.Error{reason: reason}} ->
+        {:error, reason} ->
           {:error, "HTTP request failed: #{inspect(reason)}"}
       end
     rescue
@@ -251,6 +252,14 @@ defmodule GrowthBook.FeatureRepository do
         {:error, "Unexpected error: #{Exception.message(e)}"}
     end
   end
+
+  # Decodes a raw JSON body. A map is kept as is, for clients that already decoded it.
+  defp decode_body(body) when is_map(body), do: body
+  defp decode_body(body), do: Jason.decode!(body)
+
+  # Returns the client module for logging, or nil if none was found.
+  defp http_client_module({:ok, {module, _opts}}), do: module
+  defp http_client_module(_), do: nil
 
   defp decrypt_features(encrypted_features, decryption_key) do
     try do

@@ -41,7 +41,10 @@ defmodule GrowthBook.MixProject do
       {:ex_doc, "~> 0.27", only: :dev, runtime: false},
       {:jason, "~> 1.3"},
       {:dialyxir, "~> 1.1", only: :dev, runtime: false},
-      {:httpoison, "~> 3.0"},
+      # HTTP clients. All optional: users pick one, see GrowthBook.HTTPClient.
+      {:httpoison, "~> 3.0", optional: true},
+      {:req, "~> 0.5", optional: true},
+      {:tesla, "~> 1.4", optional: true},
       {:meck, "~> 0.9.2", only: :test}
     ]
   end
@@ -65,6 +68,12 @@ defmodule GrowthBook.MixProject do
           GrowthBook,
           GrowthBook.Config,
           GrowthBook.Context
+        ],
+        "HTTP clients": [
+          GrowthBook.HTTPClient,
+          GrowthBook.HTTPClient.HTTPoison,
+          GrowthBook.HTTPClient.Req,
+          GrowthBook.HTTPClient.Tesla
         ],
         Features: [
           GrowthBook.Feature,

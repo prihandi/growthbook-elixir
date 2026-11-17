@@ -20,9 +20,9 @@ defmodule GrowthBook.IntegrationTest do
       )
     end
 
-    def get("https://cdn.growthbook.io/api/features/client-key") do
+    def get("https://cdn.growthbook.io/api/features/client-key", _opts) do
       body = Agent.get(__MODULE__, fn state -> Jason.encode!(state) end)
-      {:ok, %HTTPoison.Response{status_code: 200, body: body}}
+      {:ok, %{status: 200, body: body}}
     end
 
     def update_features(new_features) do
@@ -36,8 +36,8 @@ defmodule GrowthBook.IntegrationTest do
   setup do
     {:ok, _} = DynamicMockHTTP.start_link(nil)
 
-    # Replace HTTPoison with our mock
-    original_http = Application.get_env(:growthbook, :http_client, HTTPoison)
+    # Replace the HTTP client with our mock
+    original_http = Application.get_env(:growthbook, :http_client)
     Application.put_env(:growthbook, :http_client, DynamicMockHTTP)
 
     on_exit(fn ->

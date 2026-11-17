@@ -407,6 +407,8 @@ defmodule GrowthBook do
     * `:refresh_strategy` - Optional. Either :periodic or :manual (default: :periodic)
     * `:on_refresh` - Optional. Function to call when features are refreshed
     * `:initialization_timeout` - Optional. Timeout in ms for initial feature fetch (default: 5000)
+    * `:http_client` - Optional. HTTP client module, or `{module, opts}`. Overrides the
+      `:http_client` app env. See `GrowthBook.HTTPClient` (default: auto-detected)
   """
   @spec init(Keyword.t()) :: init_result()
   def init(opts) do
